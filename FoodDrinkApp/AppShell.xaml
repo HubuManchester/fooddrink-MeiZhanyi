@@ -4,29 +4,59 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:FoodDrinkApp"
-    Title="NutriBite"
-    FlyoutBehavior="Disabled"
-    Shell.BackgroundColor="{AppThemeBinding Light=#FFF4E3, Dark=#120E0B}"
-    Shell.ForegroundColor="{AppThemeBinding Light=#3A2518, Dark=#FFF2DF}"
-    Shell.TitleColor="{AppThemeBinding Light=#3A2518, Dark=#FFF2DF}"
-    Shell.UnselectedColor="{AppThemeBinding Light=#9A7B63, Dark=#BFA58E}"
-    Shell.TabBarBackgroundColor="{AppThemeBinding Light=#FFF4E3, Dark=#120E0B}"
-    Shell.TabBarForegroundColor="{AppThemeBinding Light=#D9472B, Dark=#FFB15D}"
-    Shell.TabBarTitleColor="{AppThemeBinding Light=#D9472B, Dark=#FFB15D}"
-    Shell.TabBarUnselectedColor="{AppThemeBinding Light=#9A7B63, Dark=#BFA58E}">
+    Shell.FlyoutBehavior="Disabled"
+    Shell.TabBarBackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1A1A2E}"
+    Shell.TabBarTitleColor="{AppThemeBinding Light=#0D9488, Dark=#5EEAD4}"
+    Shell.TabBarUnselectedColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+    Shell.TabBarForegroundColor="{AppThemeBinding Light=#0D9488, Dark=#5EEAD4}">
 
     <TabBar>
         <ShellContent
-            Title="Foods"
+            Title="Home"
             ContentTemplate="{DataTemplate local:MainPage}"
-            Route="MainPage" />
+            Route="MainPage">
+            <ShellContent.Icon>
+                <FontImageSource 
+                    FontFamily="Arial"
+                    Glyph="&#x1F371;"
+                    Size="24" />
+            </ShellContent.Icon>
+        </ShellContent>
+
+        <ShellContent
+            Title="Add"
+            ContentTemplate="{DataTemplate local:AddItemPage}"
+            Route="AddItemPage">
+            <ShellContent.Icon>
+                <FontImageSource 
+                    FontFamily="Arial"
+                    Glyph="&#x2795;"
+                    Size="24" />
+            </ShellContent.Icon>
+        </ShellContent>
+
         <ShellContent
             Title="Hardware"
             ContentTemplate="{DataTemplate local:HardwarePage}"
-            Route="HardwarePage" />
+            Route="HardwarePage">
+            <ShellContent.Icon>
+                <FontImageSource 
+                    FontFamily="Arial"
+                    Glyph="&#x1F4F1;"
+                    Size="24" />
+            </ShellContent.Icon>
+        </ShellContent>
+
         <ShellContent
             Title="Settings"
             ContentTemplate="{DataTemplate local:SettingsPage}"
-            Route="SettingsPage" />
+            Route="SettingsPage">
+            <ShellContent.Icon>
+                <FontImageSource 
+                    FontFamily="Arial"
+                    Glyph="&#x2699;"
+                    Size="24" />
+            </ShellContent.Icon>
+        </ShellContent>
     </TabBar>
 </Shell>

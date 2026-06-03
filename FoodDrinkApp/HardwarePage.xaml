@@ -94,6 +94,110 @@
                 </Grid>
             </Border>
 
+            
+            <Border StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=#F0D6B8, Dark=#3E3023}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFA, Dark=#1A1712}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Shake detection" 
+                                   FontSize="17" 
+                                   FontAttributes="Bold" 
+                                   TextColor="{AppThemeBinding Light=#7B4397, Dark=#D8A6FF}" />
+                            <Label Text="Shake your phone to trigger an action." 
+                                   FontSize="13" 
+                                   TextColor="{AppThemeBinding Light=#8B6D55, Dark=#D8C4AC}" />
+                        </VerticalStackLayout>
+                        <Button x:Name="AccelerometerButton"
+                                Grid.Column="1"
+                                Text="Start"
+                                BackgroundColor="#7B4397"
+                                TextColor="#FFFFFF"
+                                Clicked="OnToggleAccelerometerClicked"
+                                SemanticProperties.Hint="Start or stop shake detection" />
+                    </Grid>
+                    <Label x:Name="AccelerometerLabel"
+                           Text="Accelerometer is off. Tap Start to begin."
+                           FontSize="15"
+                           TextColor="{AppThemeBinding Light=#6E5A47, Dark=#D8C4AC}" />
+                    <Label x:Name="ShakeCountLabel"
+                           Text="Shakes detected: 0"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light=#9A7B63, Dark=#BFA58E}" />
+                </VerticalStackLayout>
+            </Border>
+
+            
+            <Border StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=#F0D6B8, Dark=#3E3023}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFA, Dark=#1A1712}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="3">
+                        <Label Text="Flashlight" 
+                               FontSize="17" 
+                               FontAttributes="Bold" 
+                               TextColor="{AppThemeBinding Light=#E6A800, Dark=#FFD54F}" />
+                        <Label Text="Use the camera flash as a torch for food photography." 
+                               FontSize="13" 
+                               TextColor="{AppThemeBinding Light=#8B6D55, Dark=#D8C4AC}" />
+                    </VerticalStackLayout>
+                    <Button x:Name="FlashlightButton"
+                            Grid.Column="1"
+                            Text="Turn on"
+                            BackgroundColor="#E6A800"
+                            TextColor="#3A2518"
+                            Clicked="OnToggleFlashlightClicked"
+                            SemanticProperties.Hint="Turn the flashlight on or off" />
+                </Grid>
+            </Border>
+
+            
+            <Border StrokeThickness="1"
+                    Stroke="{AppThemeBinding Light=#F0D6B8, Dark=#3E3023}"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFA, Dark=#1A1712}"
+                    Padding="16">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="8" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Compass" 
+                                   FontSize="17" 
+                                   FontAttributes="Bold" 
+                                   TextColor="{AppThemeBinding Light=#0077B6, Dark=#90E0EF}" />
+                            <Label Text="Show which direction you are facing." 
+                                   FontSize="13" 
+                                   TextColor="{AppThemeBinding Light=#8B6D55, Dark=#D8C4AC}" />
+                        </VerticalStackLayout>
+                        <Button x:Name="CompassButton"
+                                Grid.Column="1"
+                                Text="Start"
+                                BackgroundColor="#0077B6"
+                                TextColor="#FFFFFF"
+                                Clicked="OnToggleCompassClicked"
+                                SemanticProperties.Hint="Start or stop compass reading" />
+                    </Grid>
+                    <Label x:Name="CompassLabel"
+                           Text="Compass is off. Tap Start to begin."
+                           FontSize="15"
+                           TextColor="{AppThemeBinding Light=#6E5A47, Dark=#D8C4AC}" />
+                    <Label x:Name="CompassDirectionLabel"
+                           Text="Direction: --"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light=#9A7B63, Dark=#BFA58E}" />
+                </VerticalStackLayout>
+            </Border>
+
             <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                 <Button Text="Read help"
                         BackgroundColor="#F29B38"

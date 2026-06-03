@@ -1,56 +1,88 @@
 using FoodDrinkApp.Services;
 
+
 namespace FoodDrinkApp;
 
 public partial class HardwarePage : ContentPage
 {
     private int feedbackTestCount;
 
+    
+    private bool isAccelerometerActive;
+    private int shakeCount;
+    private DateTime lastShakeTime = DateTime.MinValue;
+
+    
+    private bool isFlashlightOn;
+
+    
+    private bool isCompassActive;
+
     public HardwarePage()
     {
         InitializeComponent();
     }
 
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
-        AccessibilityService.ApplyFontScale(this);
-    }
-
     protected override void OnDisappearing()
     {
+        
         SpeechService.Stop();
+
+        
+        if (isAccelerometerActive)
+        {
+            Accelerometer.Default.ReadingChanged -= OnAccelerometerReadingChanged;
+            Accelerometer.Default.Stop();
+            isAccelerometerActive = false;
+        }
+
+        
+        if (isFlashlightOn)
+        {
+            Flashlight.Default.TurnOffAsync();
+            isFlashlightOn = false;
+        }
+
+        
+        if (isCompassActive)
+        {
+            Compass.Default.ReadingChanged -= OnCompassReadingChanged;
+            Compass.Default.Stop();
+            isCompassActive = false;
+        }
+
         base.OnDisappearing();
     }
 
+   
     private async void OnTakePhotoClicked(object? sender, EventArgs e)
     {
         try
         {
+            SetStatus("Opening camera...");
+
             if (!MediaPicker.Default.IsCaptureSupported)
             {
-                SetStatus("This device does not support camera capture.");
+                SetStatus("Camera not supported on this device.");
                 return;
             }
 
             var photo = await MediaPicker.Default.CapturePhotoAsync();
             if (photo is null)
             {
-                SetStatus("Photo capture cancelled.");
+                SetStatus("Photo capture was cancelled.");
                 return;
             }
 
-            await using var stream = await photo.OpenReadAsync();
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            var imageBytes = memoryStream.ToArray();
-            FoodPhoto.Source = ImageSource.FromStream(() => new MemoryStream(imageBytes));
-            SetStatus("Food photo captured successfully.");
-            HapticFeedback.Default.Perform(HapticFeedbackType.Click);
+            var stream = await photo.OpenReadAsync();
+            FoodPhoto.Source = ImageSource.FromStream(() => stream);
+
+            SetStatus($"Photo captured: {photo.FileName}");
+            SemanticScreenReader.Announce("Photo captured successfully.");
         }
         catch (PermissionException)
         {
-            SetStatus("Camera permission was denied. Enable camera access in device settings.");
+            SetStatus("Camera permission was denied.");
         }
         catch (Exception ex)
         {
@@ -58,27 +90,46 @@ public partial class HardwarePage : ContentPage
         }
     }
 
+    
     private async void OnGetLocationClicked(object? sender, EventArgs e)
     {
         try
         {
-            SetStatus("Getting location...");
-            var request = new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(10));
+            SetStatus("Fetching location...");
+
+            var request = new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(10));
             var location = await Geolocation.Default.GetLocationAsync(request);
 
             if (location is null)
             {
-                SetStatus("Current location could not be found.");
+                SetStatus("Unable to determine location.");
                 return;
             }
 
-            CoordinateLabel.Text = $"Latitude {location.Latitude:F5}, longitude {location.Longitude:F5}";
-            LocationLabel.Text = await BuildAddressTextAsync(location);
-            SetStatus("Country, city, and coordinates have been loaded.");
+            CoordinateLabel.Text = $"Lat: {location.Latitude:F5}, Lon: {location.Longitude:F5}";
+
+            var placemarks = await Geocoding.Default.GetPlacemarksAsync(location.Latitude, location.Longitude);
+            var place = placemarks?.FirstOrDefault();
+
+            if (place is not null)
+            {
+                LocationLabel.Text = $"{place.Locality}, {place.AdminArea}, {place.CountryName}";
+                SetStatus("Location captured.");
+                SemanticScreenReader.Announce($"Location is {place.Locality}, {place.CountryName}");
+            }
+            else
+            {
+                LocationLabel.Text = "Address not found.";
+                SetStatus("Coordinates captured, but address lookup failed.");
+            }
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetStatus("Location is not supported on this device.");
         }
         catch (PermissionException)
         {
-            SetStatus("Location permission was denied. Enable location access in device settings.");
+            SetStatus("Location permission was denied.");
         }
         catch (Exception ex)
         {
@@ -86,103 +137,208 @@ public partial class HardwarePage : ContentPage
         }
     }
 
-    private static async Task<string> BuildAddressTextAsync(Location location)
+    
+    private void OnToggleAccelerometerClicked(object? sender, EventArgs e)
     {
         try
         {
-            var placemarks = await Geocoding.Default.GetPlacemarksAsync(location);
-            var placemark = placemarks?.FirstOrDefault();
-            var address = FormatPlacemark(placemark);
-
-            if (!string.IsNullOrWhiteSpace(address))
+            if (!isAccelerometerActive)
             {
-                return address;
+                
+                Accelerometer.Default.ReadingChanged += OnAccelerometerReadingChanged;
+                Accelerometer.Default.Start(SensorSpeed.UI);
+                isAccelerometerActive = true;
+                AccelerometerButton.Text = "Stop";
+                AccelerometerLabel.Text = "Accelerometer is running. Shake your phone!";
+                SetStatus("Accelerometer started.");
+            }
+            else
+            {
+                
+                Accelerometer.Default.ReadingChanged -= OnAccelerometerReadingChanged;
+                Accelerometer.Default.Stop();
+                isAccelerometerActive = false;
+                AccelerometerButton.Text = "Start";
+                AccelerometerLabel.Text = "Accelerometer is off. Tap Start to begin.";
+                SetStatus("Accelerometer stopped.");
             }
         }
-        catch
+        catch (FeatureNotSupportedException)
         {
-        }
-
-        return BuildFallbackAddress(location);
-    }
-
-    private static string FormatPlacemark(Placemark? placemark)
-    {
-        if (placemark is null)
-        {
-            return string.Empty;
-        }
-
-        var parts = new[]
-        {
-            placemark.CountryName,
-            placemark.AdminArea,
-            placemark.Locality,
-            placemark.SubLocality,
-            placemark.Thoroughfare
-        }
-        .Where(part => !string.IsNullOrWhiteSpace(part))
-        .Distinct()
-        .ToArray();
-
-        return parts.Length == 0 ? string.Empty : string.Join(" / ", parts);
-    }
-
-    private static string BuildFallbackAddress(Location location)
-    {
-        if (IsNear(location, 37.422, -122.084, 0.08))
-        {
-            return "United States / California / Mountain View";
-        }
-
-        if (location.Latitude is >= 37.0 and <= 38.2 && location.Longitude is >= -123.2 and <= -121.5)
-        {
-            return "United States / California / San Francisco Bay Area";
-        }
-
-        if (location.Latitude is >= 18 and <= 54 && location.Longitude is >= 73 and <= 135)
-        {
-            return "China / Current city requires a real device or available geocoding service";
-        }
-
-        return "Coordinates were found, but country and city were not returned by this device.";
-    }
-
-    private static bool IsNear(Location location, double latitude, double longitude, double tolerance)
-    {
-        return Math.Abs(location.Latitude - latitude) <= tolerance &&
-               Math.Abs(location.Longitude - longitude) <= tolerance;
-    }
-
-    private async void OnReadHelpClicked(object? sender, EventArgs e)
-    {
-        try
-        {
-            const string helpText = "NutriBite records foods and drinks, shows nutrition details, and uses camera, location, speech, and haptic feedback to make meal tracking more practical.";
-            await SpeechService.SpeakAsync(helpText);
-            SetStatus("Reading help content aloud.");
+            SetStatus("Accelerometer is not supported on this device.");
         }
         catch (Exception ex)
         {
-            SetStatus($"Text to speech error: {ex.Message}");
+            SetStatus($"Accelerometer error: {ex.Message}");
         }
+    }
+
+    private void OnAccelerometerReadingChanged(object? sender, AccelerometerChangedEventArgs e)
+    {
+        
+        var data = e.Reading;
+        double x = data.Acceleration.X;
+        double y = data.Acceleration.Y;
+        double z = data.Acceleration.Z;
+
+        
+        double acceleration = Math.Sqrt(x * x + y * y + z * z);
+
+        
+        if (acceleration > 2.5 && DateTime.Now - lastShakeTime > TimeSpan.FromMilliseconds(500))
+        {
+            lastShakeTime = DateTime.Now;
+            shakeCount++;
+
+            
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                ShakeCountLabel.Text = $"Shakes detected: {shakeCount}";
+                AccelerometerLabel.Text = $"Shake detected! X:{x:F2} Y:{y:F2} Z:{z:F2}";
+                HapticFeedback.Default.Perform(HapticFeedbackType.Click);
+                SetStatus($"Shake #{shakeCount} detected!");
+            });
+        }
+    }
+
+    
+    private async void OnToggleFlashlightClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (!isFlashlightOn)
+            {
+                
+                await Flashlight.Default.TurnOnAsync();
+                isFlashlightOn = true;
+                FlashlightButton.Text = "Turn off";
+                SetStatus("Flashlight is now on.");
+            }
+            else
+            {
+                
+                await Flashlight.Default.TurnOffAsync();
+                isFlashlightOn = false;
+                FlashlightButton.Text = "Turn on";
+                SetStatus("Flashlight is now off.");
+            }
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetStatus("Flashlight is not supported on this device.");
+        }
+        catch (PermissionException)
+        {
+            SetStatus("Flashlight permission was denied.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Flashlight error: {ex.Message}");
+        }
+    }
+
+    
+    private void OnToggleCompassClicked(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (!isCompassActive)
+            {
+                
+                Compass.Default.ReadingChanged += OnCompassReadingChanged;
+                Compass.Default.Start(SensorSpeed.UI);
+                isCompassActive = true;
+                CompassButton.Text = "Stop";
+                CompassLabel.Text = "Compass is running...";
+                SetStatus("Compass started.");
+            }
+            else
+            {
+                
+                Compass.Default.ReadingChanged -= OnCompassReadingChanged;
+                Compass.Default.Stop();
+                isCompassActive = false;
+                CompassButton.Text = "Start";
+                CompassLabel.Text = "Compass is off. Tap Start to begin.";
+                CompassDirectionLabel.Text = "Direction: --";
+                SetStatus("Compass stopped.");
+            }
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetStatus("Compass is not supported on this device.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Compass error: {ex.Message}");
+        }
+    }
+
+    private void OnCompassReadingChanged(object? sender, CompassChangedEventArgs e)
+    {
+      
+        double heading = e.Reading.HeadingMagneticNorth;
+
+        
+        string direction = heading switch
+        {
+            >= 337.5 or < 22.5 => "North (N)",
+            >= 22.5 and < 67.5 => "Northeast (NE)",
+            >= 67.5 and < 112.5 => "East (E)",
+            >= 112.5 and < 157.5 => "Southeast (SE)",
+            >= 157.5 and < 202.5 => "South (S)",
+            >= 202.5 and < 247.5 => "Southwest (SW)",
+            >= 247.5 and < 292.5 => "West (W)",
+            >= 292.5 and < 337.5 => "Northwest (NW)",
+            _ => "Unknown"
+        };
+
+        
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            CompassLabel.Text = $"Heading: {heading:F1}бу";
+            CompassDirectionLabel.Text = $"Direction: {direction}";
+        });
+    }
+
+    
+    private async void OnReadHelpClicked(object? sender, EventArgs e)
+    {
+        SetStatus("Reading help text...");
+
+        string helpText = "This page demonstrates mobile hardware capabilities. " +
+                         "You can capture a food photo using the camera, " +
+                         "record the meal location with GPS, " +
+                         "detect phone shakes with the accelerometer, " +
+                         "use the flashlight for better lighting, " +
+                         "check your direction with the compass, " +
+                         "and test haptic feedback.";
+
+        await SpeechService.SpeakAsync(helpText);
+        SetStatus("Speech finished.");
     }
 
     private void OnStopSpeechClicked(object? sender, EventArgs e)
     {
         SpeechService.Stop();
-        SetStatus("Reading stopped.");
+        SetStatus("Speech stopped.");
     }
 
+    
     private void OnFeedbackClicked(object? sender, EventArgs e)
     {
         try
         {
-            Vibration.Default.Vibrate(TimeSpan.FromMilliseconds(450));
             HapticFeedback.Default.Perform(HapticFeedbackType.LongPress);
+            Vibration.Default.Vibrate(TimeSpan.FromMilliseconds(200));
+
             feedbackTestCount++;
             FeedbackCountLabel.Text = $"Haptic feedback tests: {feedbackTestCount}";
-            SetStatus("Vibration and haptic feedback triggered. The changing counter can be used for screen-recorded verification.");
+            SetStatus("Haptic feedback triggered.");
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetStatus("Haptic feedback is not supported.");
         }
         catch (Exception ex)
         {
@@ -190,6 +346,7 @@ public partial class HardwarePage : ContentPage
         }
     }
 
+    
     private void SetStatus(string message)
     {
         HardwareStatusLabel.Text = message;
