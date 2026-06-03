@@ -110,7 +110,4 @@ Note: Some hardware features require a physical device:
 ## Author
 
 **[Mei Zhanyi]**  
-Student ID: [21906378]  
-
-
-
+Student ID: [21906378] 

@@ -6,90 +6,129 @@ namespace FoodDrinkApp.Services;
 
 public static class FoodCatalogService
 {
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(12)
-    };
+    private static readonly HttpClient HttpClient = new();
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly List<FoodItem> cachedItems = new()
     {
-        PropertyNameCaseInsensitive = true
-    };
-
-    private static readonly List<FoodItem> LocalFallbackItems =
-    [
-        new()
+        new FoodItem
         {
-            Name = "Berry Yogurt Bowl",
-            Category = "Breakfast",
-            Description = "Greek yogurt with mixed berries, oats, and a small drizzle of honey.",
-            Calories = 340,
-            Protein = 24,
-            Carbs = 42,
-            Fat = 8,
-            AllergyNote = "Contains dairy and gluten.",
-            Tags = "healthy breakfast yogurt berries"
-        },
-        new()
-        {
-            Name = "Chicken Brown Rice Box",
+            Id = "1",
+            Name = "Grilled Chicken Salad",
             Category = "Lunch",
-            Description = "Grilled chicken breast with brown rice, spinach, cucumber, and lemon dressing.",
-            Calories = 520,
-            Protein = 38,
-            Carbs = 58,
-            Fat = 14,
-            AllergyNote = "No common allergens recorded.",
-            Tags = "meal prep protein lunch"
+            Description = "Fresh garden salad with grilled chicken breast, cherry tomatoes, and balsamic dressing.",
+            Calories = 350,
+            Protein = 35,
+            Carbs = 12,
+            Fat = 18,
+            AllergyNote = "None"
         },
-        new()
+        new FoodItem
         {
-            Name = "Iced Matcha Latte",
-            Category = "Drink",
-            Description = "Matcha, milk, and ice. A lower-sugar version is recommended.",
-            Calories = 180,
-            Protein = 8,
-            Carbs = 22,
-            Fat = 6,
-            AllergyNote = "Contains dairy unless plant-based milk is selected.",
-            Tags = "drink caffeine matcha latte"
-        },
-        new()
-        {
-            Name = "Tomato Wholegrain Pasta",
-            Category = "Dinner",
-            Description = "Wholegrain pasta with tomato sauce, basil, and roasted vegetables.",
-            Calories = 610,
-            Protein = 18,
-            Carbs = 92,
+            Id = "2",
+            Name = "Avocado Toast",
+            Category = "Breakfast",
+            Description = "Whole grain toast topped with smashed avocado, poached egg, and chili flakes.",
+            Calories = 280,
+            Protein = 12,
+            Carbs = 24,
             Fat = 16,
-            AllergyNote = "Contains gluten.",
-            Tags = "vegetarian dinner pasta"
+            AllergyNote = "Gluten, Eggs"
+        },
+        new FoodItem
+        {
+            Id = "3",
+            Name = "Green Smoothie",
+            Category = "Beverage",
+            Description = "Blend of spinach, banana, almond milk, and chia seeds.",
+            Calories = 180,
+            Protein = 6,
+            Carbs = 32,
+            Fat = 4,
+            AllergyNote = "Tree nuts"
+        },
+        new FoodItem
+        {
+            Id = "4",
+            Name = "Salmon Bowl",
+            Category = "Dinner",
+            Description = "Grilled salmon fillet with quinoa, steamed broccoli, and lemon herb sauce.",
+            Calories = 520,
+            Protein = 42,
+            Carbs = 38,
+            Fat = 22,
+            AllergyNote = "Fish"
+        },
+        new FoodItem
+        {
+            Id = "5",
+            Name = "Greek Yogurt Parfait",
+            Category = "Snack",
+            Description = "Creamy Greek yogurt layered with granola and fresh berries.",
+            Calories = 220,
+            Protein = 14,
+            Carbs = 28,
+            Fat = 6,
+            AllergyNote = "Dairy, Gluten"
         }
-    ];
+    };
 
-    private static List<FoodItem> cachedItems = new(LocalFallbackItems);
-
-    public static bool LastLoadUsedMockApi { get; private set; }
-
-    public static async Task<IReadOnlyList<FoodItem>> SearchAsync(string? query)
+    public static async Task<FoodItem?> AddAsync(FoodItem item)
     {
-        var items = await GetAllAsync();
+        item.Id = Guid.NewGuid().ToString("N");
+
+        if (MockApiConfig.IsConfigured)
+        {
+            try
+            {
+                var response = await HttpClient.PostAsJsonAsync(MockApiConfig.EndpointUrl, item);
+                if (response.IsSuccessStatusCode)
+                {
+                    var created = await response.Content.ReadFromJsonAsync<FoodItem>();
+                    if (created != null)
+                    {
+                        cachedItems.Add(created);
+                        return created;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        cachedItems.Add(item);
+        return item;
+    }
+
+    public static async Task<IEnumerable<FoodItem>> SearchAsync(string? query)
+    {
+        if (MockApiConfig.IsConfigured)
+        {
+            try
+            {
+                var url = string.IsNullOrWhiteSpace(query)
+                    ? MockApiConfig.EndpointUrl
+                    : $"{MockApiConfig.EndpointUrl}?search={Uri.EscapeDataString(query)}";
+
+                var items = await HttpClient.GetFromJsonAsync<List<FoodItem>>(url);
+                if (items != null)
+                {
+                    return items;
+                }
+            }
+            catch
+            {
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(query))
         {
-            return items.OrderBy(item => item.Name).ToList();
+            return cachedItems;
         }
 
-        var normalised = query.Trim();
-        return items
-            .Where(item =>
-                item.Name.Contains(normalised, StringComparison.OrdinalIgnoreCase) ||
-                item.Category.Contains(normalised, StringComparison.OrdinalIgnoreCase) ||
-                item.Description.Contains(normalised, StringComparison.OrdinalIgnoreCase) ||
-                item.Tags.Contains(normalised, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(item => item.Name)
-            .ToList();
+        return cachedItems.Where(i =>
+            i.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+            i.Category.Contains(query, StringComparison.OrdinalIgnoreCase));
     }
 
     public static async Task<FoodItem?> GetByIdAsync(string id)
@@ -99,66 +138,52 @@ public static class FoodCatalogService
             try
             {
                 var item = await HttpClient.GetFromJsonAsync<FoodItem>(
-                    $"{MockApiConfig.EndpointUrl.TrimEnd('/')}/{Uri.EscapeDataString(id)}",
-                    JsonOptions);
+                    $"{MockApiConfig.EndpointUrl.TrimEnd('/')}/{Uri.EscapeDataString(id)}");
+                return item;
+            }
+            catch
+            {
+            }
+        }
 
-                if (item is not null)
+        return cachedItems.FirstOrDefault(i => i.Id == id);
+    }
+
+    public static async Task<IEnumerable<FoodItem>> GetAllAsync()
+    {
+        return await SearchAsync(null);
+    }
+
+    public static async Task<bool> DeleteAsync(string id)
+    {
+        if (MockApiConfig.IsConfigured)
+        {
+            try
+            {
+                var response = await HttpClient.DeleteAsync(
+                    $"{MockApiConfig.EndpointUrl.TrimEnd('/')}/{Uri.EscapeDataString(id)}");
+
+                if (response.IsSuccessStatusCode)
                 {
-                    return item;
+                    var item = cachedItems.FirstOrDefault(x => x.Id == id);
+                    if (item != null)
+                    {
+                        cachedItems.Remove(item);
+                    }
+                    return true;
                 }
             }
             catch
             {
-                // Fall back to the last loaded cache below.
             }
         }
 
-        return cachedItems.FirstOrDefault(item => item.Id == id);
-    }
-
-    public static async Task<FoodItem> AddAsync(FoodItem item)
-    {
-        if (MockApiConfig.IsConfigured)
+        var localItem = cachedItems.FirstOrDefault(x => x.Id == id);
+        if (localItem != null)
         {
-            var response = await HttpClient.PostAsJsonAsync(MockApiConfig.EndpointUrl, item, JsonOptions);
-            response.EnsureSuccessStatusCode();
-
-            var created = await response.Content.ReadFromJsonAsync<FoodItem>(JsonOptions);
-            if (created is not null)
-            {
-                cachedItems.Add(created);
-                return created;
-            }
+            cachedItems.Remove(localItem);
+            return true;
         }
-
-        cachedItems.Add(item);
-        return item;
-    }
-
-    private static async Task<IReadOnlyList<FoodItem>> GetAllAsync()
-    {
-        if (!MockApiConfig.IsConfigured)
-        {
-            LastLoadUsedMockApi = false;
-            return cachedItems;
-        }
-
-        try
-        {
-            var items = await HttpClient.GetFromJsonAsync<List<FoodItem>>(MockApiConfig.EndpointUrl, JsonOptions);
-            if (items is { Count: > 0 })
-            {
-                cachedItems = items;
-                LastLoadUsedMockApi = true;
-                return cachedItems;
-            }
-        }
-        catch
-        {
-            // Keep the app usable during demos even if the network is unavailable.
-        }
-
-        LastLoadUsedMockApi = false;
-        return cachedItems;
+        return false;
     }
 }
